@@ -39,25 +39,30 @@ function hours(value, fallback) {
 }
 
 /**
- * Читает эффективные настройки, которые плагин пишет при старте и при
- * изменении конфига. Если файла ещё нет — падает обратно на openclaw.json,
- * чтобы выключение работало и до первого запуска плагина.
+ * Читает настройки гейта. Источник истины — openclaw.json: плагин может быть
+ * перезагружен не сразу (замена ждёт текущий ход), и его проекция
+ * effective.json в это окно отстаёт. Проекция используется только как запасной
+ * путь, если конфиг недоступен или в нём нет записи о плагине.
  */
 async function loadSettings() {
   let raw = null;
   try {
-    raw = JSON.parse(
-      await fs.readFile(path.join(STATE_DIR, "warm-cache", "effective.json"), "utf8"),
-    );
+    const cfgFile =
+      process.env.OPENCLAW_CONFIG_PATH || path.join(STATE_DIR, "openclaw.json");
+    const cfg = JSON.parse(await fs.readFile(cfgFile, "utf8"));
+    const entry = cfg?.plugins?.entries?.["warm-cache-continuity"];
+    if (entry && typeof entry === "object") {
+      raw = entry.config && typeof entry.config === "object" ? { ...entry.config } : {};
+      if (entry.enabled === false) raw.enabled = false;
+    }
   } catch {
-    /* plugin has not written settings yet */
+    /* config unreadable — fall back to the plugin projection */
   }
   if (!raw || typeof raw !== "object") {
     try {
-      const cfgFile =
-        process.env.OPENCLAW_CONFIG_PATH || path.join(STATE_DIR, "openclaw.json");
-      const cfg = JSON.parse(await fs.readFile(cfgFile, "utf8"));
-      raw = cfg?.plugins?.entries?.["warm-cache-continuity"]?.config ?? {};
+      raw = JSON.parse(
+        await fs.readFile(path.join(STATE_DIR, "warm-cache", "effective.json"), "utf8"),
+      );
     } catch {
       raw = {};
     }

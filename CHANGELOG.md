@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.3.1 — 2026-11-07
+
+**Fixed: the master switch could report "off" and still behave as "on".**
+
+The plugin wrote `~/.openclaw/warm-cache/effective.json` when it loaded, and the stream hook and
+the presence gate read that projection as the primary source. But OpenClaw queues a plugin
+replacement behind in-flight work — `Plugin replacement queued behind 1 retained work item(s);
+applies when they finish within the 60s drain budget` — and on a busy gateway it can stay queued
+far longer. In that window `openclaw config set ... config.enabled false` changed
+`openclaw.json`, the projection never moved, and the gate kept firing with the old settings.
+
+- Plugin: resolve the settings from `openclaw.json` on every `agent_end` and
+  `before_prompt_build`, cached by `mtime`, instead of closing over the config read at
+  registration. A change takes effect on the next event, with no restart and no wait for the
+  replacement.
+- Plugin: rewrite `effective.json` whenever the resolved settings change, so out-of-process
+  consumers stay in step instead of drifting.
+- `presence-check.mjs`: `openclaw.json` first, projection as the fallback (previously the
+  reverse).
+- Internal `stream-logger` hook: same order, with the cache keyed by file **and** mtime so the
+  two files cannot shadow each other.
+
+Verified both ways, in isolation and in the real environment: presence gate `fire:false` /
+`fire:true` with identical inputs; hook 0 lines / 1 line; plugin `injected:false` /
+`injected:true` and `effective.enabled` false / true.
+
 ## 1.3.0 — 2026-11-07
 
 The mechanism becomes a switchable feature instead of a set of scripts wired by hand.

@@ -1,7 +1,7 @@
 ---
 name: warm-cache-setup
 description: "Use for OpenClaw warm cache or living-loop memory: session-cache, session-memory, stream hook, live state, presence watcher, consolidation. Produces continuity."
-version: 1.2.0
+version: 1.3.1
 author: port338
 license: MIT
 metadata:
@@ -416,3 +416,4 @@ A different architecture. The session-memory hook and AGENTS.md startup are Open
 30. **Wiring hooks from a non-bundled plugin without the conversation grant.** `agent_end` and `before_prompt_build` require `plugins.entries.<id>.hooks.allowConversationAccess: true`. Without it the plugin still loads and reports `status: loaded`, but `hookCount: 0` and no handler ever runs — a silent failure that looks like a broken hook. Check `openclaw plugins inspect <id> --runtime` and look for the hook names, not just the status.
 31. **Leaving two owners of the same injection.** After the plugin takes over the live state, the old `bootstrap-extra-files` entry keeps injecting the same file, so the prompt carries it twice and turning the mechanism off does not stop the copy. Disable the core entry once the plugin path is proven.
 32. **Assuming a disabled mechanism is a deleted mechanism.** Turning `enabled` off writes to `~/.openclaw/warm-cache/effective.json` and stops new work; it does not remove `memory/stream/` or `memory/live/`. Deleting that file restores the old behavior (everything on), which is useful for recovery but confusing if you expect "missing file = off".
+33. **Treating the settings projection as the switch.** `effective.json` is written by the plugin *when it loads*, and OpenClaw queues a plugin replacement behind in-flight work (`Plugin replacement queued behind N retained work item(s)`) — on a live gateway that queue can outlast the 60-second drain budget by a long way. During that window `openclaw config set plugins.entries.<id>.config.enabled false` changes `openclaw.json`, the projection does not move, and every consumer keeps the old behavior; the switch looks implemented and does nothing. Read `openclaw.json` in every consumer (plugin hooks, the stream hook, the presence gate), cache by `mtime`, and rewrite the projection only as a side effect. Prove it by changing the setting and asserting the *next event* is affected — not by checking that the switch exists.

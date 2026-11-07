@@ -71,6 +71,13 @@ function effectivePath() {
   return path.join(stateDir(), "warm-cache", "effective.json");
 }
 
+function configPath() {
+  return (
+    process.env.OPENCLAW_CONFIG_PATH ||
+    path.join(stateDir(), "openclaw.json")
+  );
+}
+
 function dayStamp(d = new Date()) {
   const p = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
@@ -120,6 +127,41 @@ function resolveConfig(raw) {
   out.consolidation.enabled = out.consolidation.enabled === true;
   if (process.env.WARM_CACHE_ENABLED === "0") out.enabled = false;
   return out;
+}
+
+let currentCache = { mtimeMs: -1, cfg: null };
+let lastWritten = "";
+
+/**
+ * Resolve the switch from the config file at call time.
+ *
+ * A plugin replacement is queued behind in-flight work and can take a while,
+ * so the closure registered at start-up may outlive a settings change. Reading
+ * openclaw.json here, cached by mtime, makes the master switch take effect on
+ * the next event instead of on the next gateway restart.
+ */
+async function currentConfig(fallback) {
+  try {
+    const file = configPath();
+    const st = await fs.stat(file);
+    if (st.mtimeMs !== currentCache.mtimeMs) {
+      const raw = JSON.parse(await fs.readFile(file, "utf8"));
+      const entry = raw?.plugins?.entries?.[PLUGIN_ID];
+      const next = resolveConfig(entry?.config ?? {});
+      if (entry && entry.enabled === false) next.enabled = false;
+      currentCache = { mtimeMs: st.mtimeMs, cfg: next };
+      const json = JSON.stringify(next);
+      if (json !== lastWritten) {
+        lastWritten = json;
+        void writeEffective(next);
+      }
+      return next;
+    }
+    if (currentCache.cfg) return currentCache.cfg;
+  } catch {
+    /* unreadable or mid-write: keep the last known settings */
+  }
+  return fallback;
 }
 
 async function writeEffective(cfg) {
@@ -175,13 +217,14 @@ export default definePluginEntry({
   description:
     "Conversation stream, warm working state, and silence-gated initiative behind one switch.",
   register(api) {
-    const cfg = resolveConfig(api.pluginConfig);
+    const baseCfg = resolveConfig(api.pluginConfig);
+    lastWritten = JSON.stringify(baseCfg);
     let injectedOnce = false;
 
-    void writeEffective(cfg).then(() => {
+    void writeEffective(baseCfg).then(() => {
       console.log(
-        `[warm-cache-continuity] effective settings written (enabled=${cfg.enabled}, ` +
-          `stream=${cfg.stream.enabled}, liveState=${cfg.liveState.enabled}, presence=${cfg.presence.enabled})`,
+        `[warm-cache-continuity] effective settings written (enabled=${baseCfg.enabled}, ` +
+          `stream=${baseCfg.stream.enabled}, liveState=${baseCfg.liveState.enabled}, presence=${baseCfg.presence.enabled})`,
       );
     });
 
@@ -191,6 +234,7 @@ export default definePluginEntry({
       "agent_end",
       async (event, ctx) => {
         try {
+          const cfg = await currentConfig(baseCfg);
           if (!cfg.enabled || !cfg.stream.enabled) return;
 
           const sessionKey = ctx?.sessionKey || null;
@@ -281,6 +325,7 @@ export default definePluginEntry({
       "before_prompt_build",
       async () => {
         try {
+          const cfg = await currentConfig(baseCfg);
           if (!cfg.enabled || !cfg.liveState.enabled) return;
           const file = path.join(workspaceDir(), "memory", "live", "MEMORY.md");
           const raw = await fs.readFile(file, "utf8");
@@ -309,7 +354,7 @@ export default definePluginEntry({
 
     console.log(
       `[warm-cache-continuity] registered agent_end + before_prompt_build ` +
-        `(enabled=${cfg.enabled}, max=${cfg.stream.maxContent})`,
+        `(enabled=${baseCfg.enabled}, max=${baseCfg.stream.maxContent})`,
     );
   },
 });

@@ -688,10 +688,18 @@ openclaw config set plugins.entries.warm-cache-continuity.config.presence.enable
 openclaw config set plugins.entries.warm-cache-continuity.config.enabled true
 ```
 
-Changes apply without restarting the Gateway: the plugin is replaced, and it rewrites
-`~/.openclaw/warm-cache/effective.json`, which every out-of-process consumer reads — the
-internal `stream-logger` hook and `presence-check.mjs` included. That file is the contract
-between the plugin and the scripts; deleting it keeps the old behavior (everything on).
+Changes apply on the next event, without restarting the Gateway — but **not** through the
+plugin replacement. OpenClaw queues a replacement behind in-flight work (the gateway log says
+`Plugin replacement queued behind N retained work item(s); applies when they finish within the
+60s drain budget`), and that queue can stay stuck for much longer than a turn. A config file
+that has already changed while the old plugin keeps running is how a switch can look
+implemented and do nothing.
+
+So the switch is read from `openclaw.json` at call time, cached by `mtime`: the plugin resolves
+it on every `agent_end` / `before_prompt_build`, and the internal `stream-logger` hook and
+`presence-check.mjs` do the same. `~/.openclaw/warm-cache/effective.json` is a projection the
+plugin rewrites whenever the resolved settings change — useful for other consumers, never the
+primary source. Deleting it keeps the old behavior (everything on).
 
 ### What the switch does not do
 
