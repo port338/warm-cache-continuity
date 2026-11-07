@@ -269,6 +269,21 @@ Use this when the warm cache is not enough and the user wants presence between s
 3. People model: write `memory/people/<name>.md` with observed style and reactions, not facts that belong in `USER.md`.
 4. Initiative: add `living-loop-presence-watch` — cron `*/20 * * * *` in `Europe/Moscow`, `sessionTarget: isolated`, an `agentTurn` that follows `memory/PRESENCE-PING.md`, announced to the owner's direct chat. Its `trigger.script` is the shipped `scripts/living-loop/presence-trigger.js`, which runs `scripts/living-loop/presence-check.mjs` headless and returns `fire` only when the user has been silent >3 h, the moment is outside the night window, and no ping went out in the last 3 h, so quiet cycles cost no model call. Configure the gate with `OPENCLAW_WORKSPACE`, `PRESENCE_TZ`, `OWNER_NAME`, `OWNER_CHAT_ID`, `OWNER_HANDLES`, `SILENCE_HOURS`, `MIN_GAP_HOURS` and the three window hours — defaults are documented in the reference. Add `living-loop-consolidate` (every 3 days, isolated, `delivery: none`) with the same cheap-model pin. Day plans live in `memory/plans/YYYY-MM-DD.md`; every morning ping opens with that day's plan.
 5. Verify each job with a forced run and read status, model and summary; a ping with nothing to say returns `NO_REPLY` and suppresses delivery. For the watcher, prove the gate with `--now` and `--state-b64` in a sandbox `OPENCLAW_WORKSPACE`, one case per window boundary and per ping spacing, before trusting the cron; procedure and the eight-case matrix are in the reference.
+6. Make it switchable. Copy `plugin/warm-cache-continuity/` to `~/.openclaw/extensions/`, add
+   the entry with `hooks.allowConversationAccess: true`, and confirm
+   `openclaw plugins inspect warm-cache-continuity --runtime` lists `agent_end` and
+   `before_prompt_build`. The plugin becomes the owner of layers 1 and 2 and exports the
+   resolved settings to `~/.openclaw/warm-cache/effective.json`; the internal `stream-logger`
+   hook and `presence-check.mjs` read that file, so one master switch stops all active
+   behavior. Once the plugin is proven, set `hooks.internal.entries.bootstrap-extra-files`
+   to `enabled: false` — otherwise the live state is injected twice. Prove the switch both ways:
+
+   ```bash
+   openclaw config set plugins.entries.warm-cache-continuity.config.enabled false
+   node scripts/living-loop/presence-check.mjs        # {"fire":false,"reason":"disabled"}
+   openclaw config set plugins.entries.warm-cache-continuity.config.enabled true
+   node scripts/living-loop/presence-check.mjs        # fire depends on silence, not on the switch
+   ```
 
 Check: after the first consolidation, a new session continues an open thread without asking, using live state and `memory/live/consolidation-*.md`.
 
@@ -398,3 +413,6 @@ A different architecture. The session-memory hook and AGENTS.md startup are Open
 27. **Testing the presence gate against the live silence file.** A `--now` run in the real workspace reads the real `last-activity.json`, so a fire/quiet result proves nothing about the window; point `OPENCLAW_WORKSPACE` at a sandbox holding `memory/live/last-activity.json`, `memory/stream/`, `memory/plans/` and the dayoff cache, and assert one case per window boundary and per ping spacing before trusting the cron.
 28. **Expecting `AGENTS.md` to exist on a fresh workspace.** It does not. Create the file with a `## Session Startup` section before inserting the digest line, or Step 4 has no anchor and the insertion silently goes nowhere.
 29. **Assuming the Phase 4 scripts read the default workspace.** They honour `OPENCLAW_WORKSPACE`; a digest started from a cron with a different value reports an empty cache instead of failing, which looks like data loss.
+30. **Wiring hooks from a non-bundled plugin without the conversation grant.** `agent_end` and `before_prompt_build` require `plugins.entries.<id>.hooks.allowConversationAccess: true`. Without it the plugin still loads and reports `status: loaded`, but `hookCount: 0` and no handler ever runs — a silent failure that looks like a broken hook. Check `openclaw plugins inspect <id> --runtime` and look for the hook names, not just the status.
+31. **Leaving two owners of the same injection.** After the plugin takes over the live state, the old `bootstrap-extra-files` entry keeps injecting the same file, so the prompt carries it twice and turning the mechanism off does not stop the copy. Disable the core entry once the plugin path is proven.
+32. **Assuming a disabled mechanism is a deleted mechanism.** Turning `enabled` off writes to `~/.openclaw/warm-cache/effective.json` and stops new work; it does not remove `memory/stream/` or `memory/live/`. Deleting that file restores the old behavior (everything on), which is useful for recovery but confusing if you expect "missing file = off".

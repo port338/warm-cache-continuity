@@ -32,6 +32,7 @@ remains untested from zero.
 - [Phase 4 — Importance TTL and the digest](#phase-4--importance-ttl-and-the-digest)
 - [Phase 5 — Living loop](#phase-5--living-loop)
 - [Install: three paths](#install-three-paths)
+- [Turning it on and off](#turning-it-on-and-off)
 - [Using it day to day](#using-it-day-to-day)
 - [Worked examples](#worked-examples)
 - [Verification checklist](#verification-checklist)
@@ -622,6 +623,88 @@ gate in a sandbox before trusting the cron (see Example C).
 
 ---
 
+## Turning it on and off
+
+The whole mechanism is an OpenClaw plugin: `plugin/warm-cache-continuity/`. It is a normal
+plugin with a JSON-schema config, so it appears in **Settings → Plugins** with a form — no
+config-file surgery required. Layers can be switched independently, and the master switch
+stops every active behavior at once.
+
+| Setting | Default | What it controls | What "off" means |
+|---|---|---|---|
+| `enabled` | `true` | Master switch for the whole mechanism | Nothing is written, injected or sent. The presence gate returns `fire:false` before reading any file; the stream hook and the prompt hook return immediately. |
+| `stream.enabled` | `true` | Layer 1 — append-only JSONL journal | No new stream lines. Existing history stays readable by the consolidation pass. |
+| `stream.maxContent` | `8000` | Truncation of one message | — |
+| `liveState.enabled` | `true` | Layer 2 — `memory/live/MEMORY.md` injected before the model runs | No working state in the prompt; the file itself is not modified. |
+| `liveState.maxBytes` | `20000` | Size guard for the injection | — |
+| `presence.enabled` | `true` | Layer 4 — silence-gated initiative | The scheduled job still wakes every 20 minutes, evaluates the trigger and exits with `fire:false`. Zero model calls, zero messages. |
+| `presence.timezone` | `Europe/Moscow` | Quiet hours and morning windows | — |
+| `presence.silenceHours` | `3` | Silence required before a ping | — |
+| `presence.minGapHours` | `3` | Cooldown between pings | — |
+| `presence.weekdayStartHour` | `7` | End of quiet hours on working days | — |
+| `presence.weekendStartHour` | `10` | End of quiet hours on weekends/holidays | — |
+| `presence.nightStartHour` | `22` | Start of quiet hours, every day | — |
+| `consolidation.enabled` | `false` | Layer 5 — scheduled consolidation pass | Manual updates to the working state are still allowed. |
+
+### Install the plugin
+
+```bash
+mkdir -p ~/.openclaw/extensions/warm-cache-continuity
+cp plugin/warm-cache-continuity/* ~/.openclaw/extensions/warm-cache-continuity/
+openclaw plugins inspect warm-cache-continuity --runtime
+```
+
+Then make it loadable and grant the conversation hooks it needs:
+
+```json
+{
+  "plugins": {
+    "entries": {
+      "warm-cache-continuity": {
+        "enabled": true,
+        "hooks": { "allowConversationAccess": true }
+      }
+    }
+  }
+}
+```
+
+`allowConversationAccess` is required for `agent_end` and `before_prompt_build` on a
+non-bundled plugin. Without it the plugin loads, reports `hookCount: 0`, and silently does
+nothing.
+
+### Flip the switch
+
+Control UI: **Settings → Plugins → Warm Cache & Living Loop**. The same value from a shell:
+
+```bash
+# whole mechanism off
+openclaw config set plugins.entries.warm-cache-continuity.config.enabled false
+
+# only the initiative off, keep the stream and the injected state
+openclaw config set plugins.entries.warm-cache-continuity.config.presence.enabled false
+
+# back on
+openclaw config set plugins.entries.warm-cache-continuity.config.enabled true
+```
+
+Changes apply without restarting the Gateway: the plugin is replaced, and it rewrites
+`~/.openclaw/warm-cache/effective.json`, which every out-of-process consumer reads — the
+internal `stream-logger` hook and `presence-check.mjs` included. That file is the contract
+between the plugin and the scripts; deleting it keeps the old behavior (everything on).
+
+### What the switch does not do
+
+- It does not delete data. Turning it off stops new writes; `memory/stream/`, `memory/live/`
+  and the cache files stay exactly where they are, and turning it back on resumes from them.
+- It does not disable the `session-memory` hook or the semantic indexer. Those are separate
+  components with their own switches (`openclaw hooks disable session-memory`, stop the indexer
+  timer). The plugin owns layers 1, 2, 4 and the settings layer 5 needs.
+- It does not touch the automation itself. The job stays scheduled and keeps returning
+  `fire:false`; this is deliberate, so that toggling back on needs no repair of the scheduler.
+
+---
+
 ## Using it day to day
 
 You do not operate this. It runs in the background. What you actually do:
@@ -824,6 +907,10 @@ warm-cache-continuity/
 ├── CLEANRUN-2026-11-07.md                      ← clean-install report, what was proved
 ├── PUBLISH-CHECKLIST.md                        ← what is done, what is still open
 ├── LICENSE                                     ← MIT
+├── plugin/warm-cache-continuity/               ← the switch: schema + hooks, one plugin
+│   ├── openclaw.plugin.json                    ← Settings form, master and per-layer switches
+│   ├── index.js                                ← stream (agent_end) + live state (before_prompt_build)
+│   └── package.json
 └── skills/warm-cache-setup/
     ├── SKILL.md                                ← the procedure: every step with a check
     ├── references/living-loop.md               ← stream, live state, automations, consolidation
@@ -841,7 +928,7 @@ warm-cache-continuity/
         └── session-cache-chroma-meta.py        ← metadata for filtered search
 ```
 
-29 numbered pitfalls live at the end of `SKILL.md`. They are the reason this repository exists
+30 numbered pitfalls live at the end of `SKILL.md`. They are the reason this repository exists
 in this shape: each one cost a debugging session, and most of them fail **silently** — a hook
 that skips a file, a basename that is ignored, a comparison that misses a homoglyph, a digest
 that reads the wrong workspace and reports an empty cache instead of an error.

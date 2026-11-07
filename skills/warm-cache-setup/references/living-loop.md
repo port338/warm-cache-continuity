@@ -163,6 +163,11 @@ grep -c '"sessionKey":"agent:main:openai:' ~/.openclaw/workspace/memory/stream/$
 `0` while that chat is active means the transport is uncovered. Fix it with a local plugin
 on `agent_end`, which fires at the end of every agent turn regardless of transport.
 
+> **Shipped as a plugin.** `plugin/warm-cache-continuity/` in this repository does this and
+> layer 2 in one entry, with a Settings form and a master switch. Prefer it over the
+> hand-rolled layout below; the standalone version is kept here because it is the smallest
+> possible example of the `agent_end` contract.
+
 Layout `~/.openclaw/extensions/stream-agent-logger/`:
 
 - `package.json`: `{"name":"stream-agent-logger","version":"1.0.0","type":"module","openclaw":{"extensions":["./index.js"]}}`
@@ -490,6 +495,32 @@ priorities; then name 1–3 open items with concrete state and at most one concr
 offer; keep it under 12 lines, no greetings, and never invent plan items. When the user
 dictates what to do or think about tomorrow, write it to `memory/plans/YYYY-MM-DD.md`
 at once, in three blocks: `Сделать`, `Подумать`, `Не забыть`.
+
+## Switching the whole loop off
+
+The shipped plugin is the switch. Its config is the single source of truth; it writes the
+resolved values to `~/.openclaw/warm-cache/effective.json`, and the out-of-process consumers
+read that file:
+
+| Consumer | Reads | When disabled |
+|---|---|---|
+| `hooks/stream-logger/handler.js` | `enabled` + `stream.enabled` | returns before writing a line |
+| `scripts/living-loop/presence-check.mjs` | `enabled` + `presence.enabled` | returns `{"fire":false,"reason":"disabled"}` before any file or network access |
+| plugin `agent_end` | `enabled` + `stream.enabled` | returns immediately |
+| plugin `before_prompt_build` | `enabled` + `liveState.enabled` | returns no context |
+
+Master switch off means: no stream writes, no injected state, no ping, no model call. It does
+not delete data and does not unschedule the watcher — the job keeps firing every 20 minutes and
+exits quietly, so turning the switch back on needs no scheduler repair.
+
+```bash
+openclaw config set plugins.entries.warm-cache-continuity.config.enabled false
+openclaw config set plugins.entries.warm-cache-continuity.config.presence.enabled false
+openclaw config set plugins.entries.warm-cache-continuity.config.enabled true
+```
+
+Settings → Plugins renders the same fields, grouped as **Warm cache & living loop**,
+**Capture** and **Initiative**.
 
 ## Backups and checks
 

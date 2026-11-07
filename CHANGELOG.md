@@ -1,5 +1,54 @@
 # Changelog
 
+## 1.3.0 — 2026-11-07
+
+The mechanism becomes a switchable feature instead of a set of scripts wired by hand.
+
+**Added**
+
+- `plugin/warm-cache-continuity/` — an OpenClaw plugin with a JSON-schema config that
+  renders in **Settings → Plugins**: a master `enabled` switch plus independent
+  `stream`, `liveState`, `presence` and `consolidation` sections. Presence parameters
+  (timezone, silence, minimum gap, three window hours) are settings, not constants.
+- The plugin owns the two hook layers directly: `agent_end` writes the conversation stream,
+  `before_prompt_build` injects `memory/live/MEMORY.md`. The core `bootstrap-extra-files`
+  entry is no longer required for the live state, so disabling the mechanism stops the
+  injection instead of leaving it running.
+- `~/.openclaw/warm-cache/effective.json` — the resolved settings file every out-of-process
+  consumer reads (internal `stream-logger` hook, `presence-check.mjs`, cron jobs). Cache root
+  is `OPENCLAW_STATE_DIR` or `~/.openclaw`; an absent file keeps the previous behavior (on).
+- `presence-check.mjs` reads the settings and returns `{"fire":false,"reason":"disabled"}`
+  before touching the filesystem or the holiday API when the mechanism is off.
+- `WARM_CACHE_ENABLED=0` environment override for tests and one-off runs.
+
+**Changed**
+
+- `SKILL.md` gains "Step 7: install the plugin and wire the switch" and pitfall 30: a
+  non-bundled plugin without `hooks.allowConversationAccess: true` loads with
+  `hookCount: 0` and silently does nothing.
+- README gains "Turning it on and off": every setting, its default and what "off" means,
+  plus the three one-line CLI equivalents.
+
+**Verified (2026-11-07, live Gateway)**
+
+| Check | Result |
+|---|---|
+| Plugin registration | `agent_end`, `before_prompt_build`; `policy: allowConversationAccess: true` |
+| Master switch off → gate | `{"fire":false,"reason":"disabled"}` |
+| Master switch on → gate | `{"fire":true,...}` for the same clock and silence |
+| Hook write, switch on | one JSONL line written to the test workspace |
+| Hook write, switch off | no `memory/stream/` directory created |
+| Live injection | gateway log `live state injected (5770 bytes)` on a real turn |
+| Live off → on | config change applied without restart; `effective.json` rewritten both times |
+| Unit harness | `before_prompt_build` returns context on, `undefined` off; `agent_end` writes on, silent off; assistant text deduplicated by hash |
+
+**Not verified**
+
+- Settings form rendering in the Control UI (schema and `configGroups` validate; the visual
+  form was not opened).
+- Consolidation scheduling: the switch exists and defaults to off, but no scheduled
+  consolidation job was deployed.
+
 ## 1.2.0 — 2026-11-07
 
 Phase 5 stops being a specification and becomes runnable code.

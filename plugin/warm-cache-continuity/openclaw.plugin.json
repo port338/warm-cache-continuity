@@ -1,0 +1,162 @@
+{
+  "id": "warm-cache-continuity",
+  "name": "Warm Cache & Living Loop",
+  "description": "Living continuity for OpenClaw: append-only conversation stream, warm working state injected into the prompt, and a silence-gated initiative watcher. One master switch turns the whole mechanism on or off.",
+  "activation": { "onStartup": true },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "title": "Enable the whole mechanism",
+        "description": "Master switch. When off, nothing is logged, injected, or pinged: the stream is not written, no working state is added to the prompt, and the presence watcher always returns fire=false without a model call."
+      },
+      "stream": {
+        "type": "object",
+        "additionalProperties": false,
+        "title": "Layer 1 — conversation stream",
+        "description": "Append-only JSONL journal of what was actually said, written without a model call.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "title": "Write the conversation stream",
+            "description": "Append inbound and outbound messages to memory/stream/YYYY-MM-DD.jsonl. Disable to stop writes while keeping the rest of the mechanism on."
+          },
+          "maxContent": {
+            "type": "integer",
+            "minimum": 200,
+            "maximum": 60000,
+            "default": 8000,
+            "title": "Maximum characters per message",
+            "description": "Longer messages are truncated with a marker. Media contents are never copied."
+          }
+        }
+      },
+      "liveState": {
+        "type": "object",
+        "additionalProperties": false,
+        "title": "Layer 2 — warm working state",
+        "description": "Inject memory/live/MEMORY.md at the start of each turn so a fresh session knows where the conversation stopped.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "title": "Inject working state into the prompt",
+            "description": "Adds the live state file as context before the model runs. No extra model call."
+          },
+          "maxBytes": {
+            "type": "integer",
+            "minimum": 500,
+            "maximum": 200000,
+            "default": 20000,
+            "title": "Maximum injected size (bytes)",
+            "description": "The tail of the file is kept when it is longer than this."
+          }
+        }
+      },
+      "presence": {
+        "type": "object",
+        "additionalProperties": false,
+        "title": "Layer 4 — continuous presence",
+        "description": "Silence-gated initiative: the watcher decides without a model call and wakes the agent only when a message is appropriate.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "title": "Allow the presence watcher to fire",
+            "description": "When off, the gate returns fire=false immediately, so the scheduled job costs nothing and never sends a message."
+          },
+          "timezone": {
+            "type": "string",
+            "default": "Europe/Moscow",
+            "title": "Timezone",
+            "description": "IANA timezone (e.g. Europe/Moscow) used for quiet hours and morning windows."
+          },
+          "silenceHours": {
+            "type": "number",
+            "minimum": 0.5,
+            "maximum": 72,
+            "default": 3,
+            "title": "Silence before a ping (hours)",
+            "description": "How long the owner must be quiet before the agent may speak first."
+          },
+          "minGapHours": {
+            "type": "number",
+            "minimum": 0.5,
+            "maximum": 72,
+            "default": 3,
+            "title": "Minimum gap between pings (hours)",
+            "description": "Hard cooldown between two initiative messages, even if silence continues."
+          },
+          "weekdayStartHour": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 23,
+            "default": 7,
+            "title": "Weekday: earliest hour",
+            "description": "Quiet hours end at this hour on working days."
+          },
+          "weekendStartHour": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 23,
+            "default": 10,
+            "title": "Weekend/holiday: earliest hour",
+            "description": "Quiet hours end at this hour on weekends and public holidays."
+          },
+          "nightStartHour": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 23,
+            "default": 22,
+            "title": "Night: latest hour",
+            "description": "Quiet hours begin at this hour every day."
+          }
+        }
+      },
+      "consolidation": {
+        "type": "object",
+        "additionalProperties": false,
+        "title": "Layer 5 — consolidation",
+        "description": "Periodic rewrite of the working state from the stream. Off by default; the agent still updates the file on request.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false,
+            "title": "Allow scheduled consolidation",
+            "description": "Reserved for the scheduled consolidation pass. Manual updates are always allowed."
+          }
+        }
+      }
+    }
+  },
+  "configGroups": [
+    {
+      "id": "master",
+      "title": "Warm cache & living loop",
+      "order": 10,
+      "properties": ["enabled"]
+    },
+    {
+      "id": "capture",
+      "title": "Capture",
+      "order": 20,
+      "properties": ["stream", "liveState"]
+    },
+    {
+      "id": "initiative",
+      "title": "Initiative",
+      "order": 30,
+      "properties": ["presence", "consolidation"]
+    }
+  ],
+  "uiHints": {
+    "enabled": { "label": "Enable the whole mechanism" },
+    "stream.enabled": { "label": "Conversation stream" },
+    "liveState.enabled": { "label": "Warm working state" },
+    "presence.enabled": { "label": "Presence watcher" }
+  }
+}
