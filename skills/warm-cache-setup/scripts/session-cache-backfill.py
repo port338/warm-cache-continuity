@@ -11,7 +11,10 @@ import datetime
 import os
 import re
 
-CACHE_DIR = os.path.expanduser("~/.openclaw/workspace/memory/session-cache")
+WORKSPACE = os.path.expanduser(
+    os.environ.get("OPENCLAW_WORKSPACE", "~/.openclaw/workspace")
+)
+CACHE_DIR = os.path.join(WORKSPACE, "memory", "session-cache")
 VALID = {"critical", "important", "routine"}
 
 

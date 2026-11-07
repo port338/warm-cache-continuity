@@ -19,7 +19,10 @@ import datetime
 import os
 import sys
 
-CACHE_DIR = os.path.expanduser("~/.openclaw/workspace/memory/session-cache")
+WORKSPACE = os.path.expanduser(
+    os.environ.get("OPENCLAW_WORKSPACE", "~/.openclaw/workspace")
+)
+CACHE_DIR = os.path.join(WORKSPACE, "memory", "session-cache")
 
 # срок жизни метки в днях
 TTL_DAYS = {"critical": 14, "important": 7, "routine": 0}

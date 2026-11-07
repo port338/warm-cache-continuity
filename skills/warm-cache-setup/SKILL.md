@@ -1,7 +1,7 @@
 ---
 name: warm-cache-setup
 description: "Use for OpenClaw warm cache or living-loop memory: session-cache, session-memory, stream hook, live state, presence watcher, consolidation. Produces continuity."
-version: 1.0.0
+version: 1.1.0
 author: port338
 license: MIT
 metadata:
@@ -200,6 +200,8 @@ Keep `delivery.mode` at `none` so successful nightly runs stay silent; `failureA
 
 ## Step 4: Wire startup reading into AGENTS.md
 
+A brand-new workspace has no `AGENTS.md`. If the file is missing, create it first with a `## Session Startup` section — otherwise there is no anchor to insert into.
+
 Add step 3.5 in the Session Startup section, between step 3 (daily notes) and step 4 (MEMORY.md):
 
 ```markdown
@@ -243,7 +245,7 @@ The hook saves the last ~15 user/assistant messages to `memory/YYYY-MM-DD-HHMM.m
 
 Hot-reload applies the change without restarting the Gateway. To disable: `openclaw hooks disable session-memory`.
 
-Check: after sending `/new` in a safe conversation, a new `memory/YYYY-MM-DD-HHMM.md` file appears.
+Check: after sending `/new` in a safe conversation, a new `memory/YYYY-MM-DD-HHMM.md` file appears. On the very first `/new` the file contains only the session header and no messages — that is correct, there was nothing to save yet.
 
 ## Step 6: Verify the warm cache works
 
@@ -325,7 +327,7 @@ source: session-cache
 ---
 ```
 
-Three scripts ship in this skill's `scripts/` directory (copy them into your workspace `scripts/` folder if you keep all scripts in one place):
+Three scripts ship in this skill's `scripts/` directory (copy them into your workspace `scripts/` folder if you keep all scripts in one place). All three resolve the cache directory as `OPENCLAW_WORKSPACE` → `~/.openclaw/workspace`; set `OPENCLAW_WORKSPACE` when the workspace lives elsewhere. The third script additionally requires the `chromadb` Python package.
 
 1. `session-cache-backfill.py` — one-time: infers importance from the old `## Метка важности` section, takes the date from the filename, counts open `[ ]` tasks, prepends frontmatter. Skips files that already have it.
 2. `session-cache-digest.py` — the startup reader. Prints active files with their open tasks, then lists files outside the TTL window. Flags: `--all` (show expired too), `--tasks` (tasks only).
@@ -394,3 +396,5 @@ A different architecture. The session-memory hook and AGENTS.md startup are Open
 25. **Deriving silence from a field the stream does not have.** Stream records carry `channelId` and `conversationId`, not `channel`; match on those plus `sessionKey`, and confirm the computed `lastActivityAt` equals the timestamp of a real inbound message.
 26. **Assuming the stream covers the main chat.** Internal `message:*` hooks never fire for the OpenAI-compatible webchat session, so the conversation the user actually reads stays invisible while the stream looks healthy; cover `agent_end` with a local plugin (see `references/living-loop.md`, Layer 1b) and skip the sessions the message hooks already write.
 27. **Testing the presence gate against the live silence file.** A `--now` run in the real workspace reads the real `last-activity.json`, so a fire/quiet result proves nothing about the window; point `OPENCLAW_WORKSPACE` at a sandbox holding `memory/live/last-activity.json`, `memory/stream/`, `memory/plans/` and the dayoff cache, and assert one case per window boundary and per ping spacing before trusting the cron.
+28. **Expecting `AGENTS.md` to exist on a fresh workspace.** It does not. Create the file with a `## Session Startup` section before inserting the digest line, or Step 4 has no anchor and the insertion silently goes nowhere.
+29. **Assuming the Phase 4 scripts read the default workspace.** They honour `OPENCLAW_WORKSPACE`; a digest started from a cron with a different value reports an empty cache instead of failing, which looks like data loss.
