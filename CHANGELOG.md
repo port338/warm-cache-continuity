@@ -39,6 +39,10 @@ Phase 5 stops being a specification and becomes runnable code.
   updated); a broken checker fires exactly once and then stays quiet.
 - Default path resolution under a clean `HOME=/tmp/warmclean` with
   `OPENCLAW_WORKSPACE` unset.
+- Live delivery on the production host (`LIVE-2026-11-07.md`): a fired ping returned
+  `deliveryStatus: delivered`; 42 gate evaluations produced one model call; `NO_REPLY`
+  suppressed delivery with reason `silent`; the 22:00 boundary and the 3 h spacing held;
+  a one-shot announce probe delivered and auto-deleted itself.
 
 ## 1.1.0 — 2026-11-07
 

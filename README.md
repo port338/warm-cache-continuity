@@ -12,9 +12,11 @@ only when the silence is real and the hour is sane.
 
 **Status:** v1.2.0 — published draft. Verified in production on one host (OpenClaw 2026.10.7, Linux,
 Node 24). Layers 1, 2 and 4 reproduced from scratch in an isolated `HOME`; the gate logic is
-reproduced from zero (9 cases plus trigger round-trip), while ChromaDB and a live chat delivery
-were exercised on the production host only — see
-[`CLEANRUN-2026-11-07.md`](CLEANRUN-2026-11-07.md) for exactly what was and was not proved.
+reproduced from zero (9 cases plus trigger round-trip). A live chat delivery was exercised on the
+production host on 2026-11-07, together with the silent path (42 gate evaluations, one fire, no
+model call on the rest) — see [`CLEANRUN-2026-11-07.md`](CLEANRUN-2026-11-07.md) and
+[`LIVE-2026-11-07.md`](LIVE-2026-11-07.md) for exactly what was and was not proved. ChromaDB
+remains untested from zero.
 
 ---
 
@@ -805,7 +807,12 @@ Run these before believing any of the above. Every one of them is a fact you can
 Clean-install status of the same checks is recorded in
 [`CLEANRUN-2026-11-07.md`](CLEANRUN-2026-11-07.md): 1–5 and the Phase 4 checks pass from
 scratch; the gate logic passes 9 boundary cases plus the trigger round-trip from zero; 6–8
-and a live chat delivery were verified only on the production host.
+were verified only on the production host.
+
+Live behaviour of the watcher is recorded in [`LIVE-2026-11-07.md`](LIVE-2026-11-07.md): a fired
+ping reached the chat (`deliveryStatus: delivered`), 42 gate evaluations produced exactly one model
+call, a `NO_REPLY` run suppressed delivery, and the 22:00 night boundary held. Matrix delivery and
+the failure-alert path are still untested.
 
 ---
 
