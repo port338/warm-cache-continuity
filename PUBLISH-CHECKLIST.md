@@ -13,6 +13,13 @@ Skill source of truth: `~/.openclaw/agents/main/agent/workshop-skills/warm-cache
 - [x] Use case draft for `awesome-openclaw-usecases`: `../usecases/warm-cache-continuous-presence.md`
 - [x] Community channels checked (07.11.2026): `openclaw/openclaw` has Discussions disabled (issues only); `VoltAgent/awesome-openclaw-skills` 53.6k stars; `hesamsheikh/awesome-openclaw-usecases` 31.6k stars, explicit CONTRIBUTING and table format
 
+## v1.2.0 (2026-11-07)
+
+- [x] Gate scripts published (previously Phase 5 was prose only)
+- [x] Owner name, chat id and absolute paths replaced with environment variables
+- [x] Examples: `references/PRESENCE-PING.md`, `references/CONSOLIDATION.md`
+- [x] `CLEANRUN` extended with the 9-case matrix and trigger checks
+
 ## Published (2026-11-07)
 
 - [x] **Author name** — `port338` (GitHub login). Used in SKILL.md frontmatter, LICENSE, commit author.
@@ -25,9 +32,9 @@ Skill source of truth: `~/.openclaw/agents/main/agent/workshop-skills/warm-cache
 ## Before publishing
 
 - [ ] Reproduce on a clean install: fresh OpenClaw, no hooks, follow SKILL.md top to bottom, record every place the doc is wrong. Publishing an unverified procedure is how the pitfalls list stops being trustworthy. **Deferred by owner decision: publish now, fix from field feedback.**
-- [ ] Test the presence gate in a sandbox workspace (`--now` + one case per window boundary), not against real silence state.
+- [x] Presence gate shipped as code (`scripts/living-loop/presence-check.mjs`, `presence-trigger.js`) and tested in a sandbox workspace: 9 boundary cases + trigger round-trip + broken-checker path, 11/11.
 - [ ] Check the skill lints: frontmatter parses, `name` matches the directory, no dangling `related_skills`.
-- [ ] Decide whether scripts ship inside the skill directory or as a separate repo referenced from SKILL.md. ChromaDB dependency makes the skill heavier than a typical skill.
+- [x] Scripts ship inside the skill directory, including the Phase 5 gate and two instruction examples.
 - [ ] Strip `scripts/` binaries/caches if any (`__pycache__`).
 
 ## Announcement drafts

@@ -10,9 +10,10 @@ only when the silence is real and the hour is sane.
 
 `MIT` · OpenClaw 2026.10.x · Python 3.10+ · Node 20+ (presence gate only) · no hosted service
 
-**Status:** published draft. Verified in production on one host (OpenClaw 2026.10.7, Linux,
-Node 24). Layers 1, 2 and 4 reproduced from scratch in an isolated `HOME`; the ChromaDB layer
-and the presence watcher were exercised on the production host but not on a clean install — see
+**Status:** v1.2.0 — published draft. Verified in production on one host (OpenClaw 2026.10.7, Linux,
+Node 24). Layers 1, 2 and 4 reproduced from scratch in an isolated `HOME`; the gate logic is
+reproduced from zero (9 cases plus trigger round-trip), while ChromaDB and a live chat delivery
+were exercised on the production host only — see
 [`CLEANRUN-2026-11-07.md`](CLEANRUN-2026-11-07.md) for exactly what was and was not proved.
 
 ---
@@ -455,7 +456,9 @@ than a missing one: the digest treats it as today and the file never expires.
 Phases 1–4 make the agent remember. Phase 5 makes it *present*: it knows when you last spoke, it
 keeps a short live state, and it can write first — through a gate that costs nothing while quiet.
 
-Full procedure, hook code and automation payloads: `references/living-loop.md` (467 lines).
+Full procedure, hook code and automation payloads: `references/living-loop.md` (500+ lines).
+The gate itself ships as runnable code — `scripts/living-loop/presence-check.mjs` and
+`presence-trigger.js` — so Phase 5 is no longer a specification you have to implement yourself.
 
 ### 5.1 Stream — what was actually said
 
@@ -541,6 +544,21 @@ Three details that decide whether this works in practice:
 When the gate fires, the model receives facts, not vibes: current time, silence duration,
 working day or holiday, and whether today's plan file exists. Its instruction file
 (`memory/PRESENCE-PING.md`) starts the morning ping with that plan.
+
+Run it yourself, no scheduler needed:
+
+```bash
+OPENCLAW_WORKSPACE="$PWD" \
+  node skills/warm-cache-setup/scripts/living-loop/presence-check.mjs \
+  --now 2026-11-06T10:00:00+03:00 \
+  --state-b64 "$(printf '{}' | base64)"
+# {"fire":true,"message":"Gate facts: now 2026-11-06 10:00 Europe/Moscow, working day. …","state":{…}}
+```
+
+Every owner-specific value is an environment variable; nothing is baked in. The ones that
+matter: `OPENCLAW_WORKSPACE`, `PRESENCE_TZ`, `OWNER_NAME`, `OWNER_CHAT_ID`, `OWNER_HANDLES`,
+`SILENCE_HOURS`, `MIN_GAP_HOURS`, `WEEKDAY_START_HOUR`, `WEEKEND_START_HOUR`,
+`NIGHT_START_HOUR`. The full table is in `references/living-loop.md`.
 
 ### 5.5 Consolidation
 
@@ -779,12 +797,15 @@ Run these before believing any of the above. Every one of them is a fact you can
 | 8 | `systemctl status chromadb-search-proxy` | `active (running)`, survives an exec session ending |
 | 9 | Backfill, then digest | a 40-day-old `important` file lands in "outside window" and its tasks are not counted |
 | 10 | Gate in a sandbox at 23:10 | `{"fire":false}`; at 14:00 with 4 h silence, `{"fire":true}` |
+| 10a | `node scripts/living-loop/presence-check.mjs --now <Fri 10:00> --state-b64 …` | `fire: true` with silence ≥ 3 h; `fire: false` at 06:30 and 22:00 |
+| 10b | Same, `state.lastPingAt` 2 h ago | `fire: false` — the 3 h gap holds |
 | 11 | Force a run of the index job, then read the run | status `ok`, per-layer counts in the summary |
 | 12 | New session, no prompting | agent opens with the unfinished task, not a greeting |
 
 Clean-install status of the same checks is recorded in
 [`CLEANRUN-2026-11-07.md`](CLEANRUN-2026-11-07.md): 1–5 and the Phase 4 checks pass from
-scratch; 6–8 and the presence gate were verified only on the production host.
+scratch; the gate logic passes 9 boundary cases plus the trigger round-trip from zero; 6–8
+and a live chat delivery were verified only on the production host.
 
 ---
 
@@ -799,7 +820,11 @@ warm-cache-continuity/
 └── skills/warm-cache-setup/
     ├── SKILL.md                                ← the procedure: every step with a check
     ├── references/living-loop.md               ← stream, live state, automations, consolidation
+    ├── references/PRESENCE-PING.md             ← example instruction file for the ping turn
+    ├── references/CONSOLIDATION.md             ← example instruction file for consolidation
     └── scripts/
+        ├── living-loop/presence-check.mjs      ← the gate: clock + stream + state → {fire, message, state}
+        ├── living-loop/presence-trigger.js     ← trigger.script wrapper, code mode, no btoa/Buffer
         ├── index_warm_cache.py                 ← idempotent indexer (all layers)
         ├── index_session_cache.py              ← minimal indexer
         ├── search_proxy.py                     ← HTTP proxy, port 8010
@@ -843,10 +868,11 @@ a failure. Any design where the quiet outcome is ambiguous will drift into noise
 
 ## Known limitations
 
-- **ChromaDB and the presence watcher were not reproduced on a clean install.** Layers 1, 2 and
-  4 were; the index needs a container and embeddings, and the watcher needs a real chat channel
-  and scheduler. Treat Phase 3 and 5 as "documented and running in production", not "proved from
-  zero".
+- **ChromaDB and a live chat delivery were not reproduced on a clean install.** Layers 1, 2 and
+  4 were; the index needs a container and embeddings, and a real ping needs a configured
+  channel. The gate logic itself is now reproduced from zero (9 cases, plus the trigger's
+  base64 round-trip and the broken-checker path), so treat Phase 5 as "logic proved, delivery
+  documented and running in production".
 - **Single-user design.** The people model, homoglyph handling and night window are configured
   for one person's chat identity. Multi-user deployments need the gate's sender matching
   rewritten, not just a config change.

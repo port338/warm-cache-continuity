@@ -337,26 +337,62 @@ code mode, so quiet cycles cost no model call.
 }
 ```
 
-Write `scripts/living-loop/presence-check.mjs` to decide the gate from the clock, the
-stream and its own saved state. It returns one JSON line `{fire, message, state}`:
+### Shipped gate scripts
 
-- fire only inside the allowed Moscow window: weekdays 07:00–22:00, weekends and
-  Russian public holidays 10:00–22:00;
-- fire only when the last inbound user message is older than 3 h and
+Both scripts below ship inside the skill, so there is nothing to write:
+
+```text
+skills/warm-cache-setup/scripts/living-loop/
+  presence-check.mjs    ← the gate: clock + stream + saved state → {fire, message, state}
+  presence-trigger.js   ← trigger.script wrapper, code mode, no dependencies
+```
+
+`presence-check.mjs` decides from the clock, the stream and its own saved state and
+prints one JSON line `{fire, message, state}`:
+
+- fire only inside the allowed window: weekdays 07:00–22:00, weekends and public
+  holidays 10:00–22:00 (time zone from `PRESENCE_TZ`, default `Europe/Moscow`);
+- fire only when the last inbound owner message is older than 3 h and
   `state.lastPingAt` is older than 3 h;
 - return the new state (`lastPingAt`, `lastPingDay`, observed facts) on every fire so
   deduplication survives restarts and separate processes;
 - resolve holidays from `https://isdayoff.ru/api/getdata?year=YYYY&month=MM&cc=ru` and
-  cache the month in `memory/live/dayoff-YYYY-MM.json`;
+  cache the month in `memory/live/dayoff-YYYY-MM.json`; set `PRESENCE_HOLIDAY_API=off`
+  for a country with no such feed and the gate uses weekends only;
 - treat `1` in the isdayoff string as a rest day and combine it with the weekday test
   (`sat || sun || dayoff[d-1] === '1'`), because the API marks weekends and holidays
   alike and holiday-only logic silently shifts the weekend boundary to 07:00.
 
-Write `scripts/living-loop/presence-trigger.js` as the `trigger.script`: encode
-`trigger.state` with a hand-written UTF-8 base64 encoder (code mode has no `btoa` and
-no `Buffer`), call the checker with `--state-b64`, parse the last JSON line, and return
-`{fire, message, state}`. When the checker returns nothing, fire once per 24 h with the
-failure text so a broken watcher is reported instead of staying silently dead.
+All configuration is by environment variable — no names, chat ids or paths are baked in:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `OPENCLAW_WORKSPACE` | `~/.openclaw/workspace` | Root for stream, live state and plan files |
+| `PRESENCE_TZ` | `Europe/Moscow` | Time zone used for the window and the facts message |
+| `OWNER_NAME` | `the owner` | Used in the facts message and as the primary sender alias |
+| `OWNER_HANDLES` | — | Extra sender aliases, comma-separated |
+| `OWNER_CHAT_ID` | — | Telegram DM chat id; authoritative for direct messages |
+| `OWNER_MATRIX_HANDLE` | — | Matrix localpart of the owner |
+| `BOT_NAME_RE` | `\b(bot\|assistant)\b` | Sender names to ignore (the agent itself) |
+| `SILENCE_HOURS` | `3` | Silence required before a ping |
+| `MIN_GAP_HOURS` | `3` | Minimum gap between pings |
+| `WEEKDAY_START_HOUR` | `7` | End of the weekday night window |
+| `WEEKEND_START_HOUR` | `10` | End of the rest-day night window |
+| `NIGHT_START_HOUR` | `22` | Start of the night window |
+| `PRESENCE_PLAN_DIR` | `<workspace>/memory/plans` | Where the daily plan file lives |
+
+`presence-trigger.js` is the `trigger.script`: it encodes `trigger.state` with a
+hand-written UTF-8 base64 encoder (code mode has no `btoa` and no `Buffer`), calls the
+checker with `--state-b64`, parses the last JSON line, and returns
+`{fire, message, state}`. When the checker returns nothing it fires once per 24 h with
+the failure text, so a broken watcher is reported instead of staying silently dead.
+The workspace is resolved by the shell (`${OPENCLAW_WORKSPACE:-$HOME/.openclaw/workspace}`),
+so the same script works in any profile.
+
+Instruction files are shipped as examples: `references/PRESENCE-PING.md` and
+`references/CONSOLIDATION.md`. Copy them to `memory/PRESENCE-PING.md` and
+`memory/CONSOLIDATION.md` and adjust the wording; the automation payloads reference
+those paths.
 
 Install or repair the job from the CLI when the automation tool refuses because another
 session owns it:

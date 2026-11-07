@@ -1,7 +1,7 @@
 ---
 name: warm-cache-setup
 description: "Use for OpenClaw warm cache or living-loop memory: session-cache, session-memory, stream hook, live state, presence watcher, consolidation. Produces continuity."
-version: 1.1.0
+version: 1.2.0
 author: port338
 license: MIT
 metadata:
@@ -262,13 +262,13 @@ Failure modes:
 
 ## Living loop: stream, live state, initiative
 
-Use this when the warm cache is not enough and the user wants presence between sessions, not only a task list. Full procedure, hook code and automation payloads: `references/living-loop.md`.
+Use this when the warm cache is not enough and the user wants presence between sessions, not only a task list. Full procedure, hook code and automation payloads: `references/living-loop.md`. The gate itself is shipped as code in `scripts/living-loop/` (`presence-check.mjs`, `presence-trigger.js`), and the two instruction files are shipped as examples (`references/PRESENCE-PING.md`, `references/CONSOLIDATION.md`). Copy the scripts into `<workspace>/scripts/living-loop/`; every owner-specific value is an environment variable, not a constant.
 
 1. Stream: create `~/.openclaw/hooks/stream-logger/` with `HOOK.md` and `handler.js` from the reference; enable `hooks.internal.entries.stream-logger.enabled` by an atomic config edit; confirm `config hot reload applied` in the Gateway journal and two JSON lines from a direct handler test.
 2. Live state: write `memory/live/MEMORY.md` and add `bootstrap-extra-files` with `paths: ["memory/live/MEMORY.md"]`. Only the basename `MEMORY.md` is loadable. Verify the bundled handler returns the file with `missing: false`.
 3. People model: write `memory/people/<name>.md` with observed style and reactions, not facts that belong in `USER.md`.
-4. Initiative: add `living-loop-presence-watch` — cron `*/20 * * * *` in `Europe/Moscow`, `sessionTarget: isolated`, an `agentTurn` that follows `memory/PRESENCE-PING.md`, announced to the owner's direct chat. Its `trigger.script` runs `scripts/living-loop/presence-check.mjs` headless and returns `fire` only when the user has been silent >3 h, the moment is outside the night window, and no ping went out in the last 3 h, so quiet cycles cost no model call. Add `living-loop-consolidate` (every 3 days, isolated, `delivery: none`) with the same cheap-model pin. Day plans live in `memory/plans/YYYY-MM-DD.md`; every morning ping opens with that day's plan.
-5. Verify each job with a forced run and read status, model and summary; a ping with nothing to say returns `NO_REPLY` and suppresses delivery. For the watcher, prove the gate with `--now` and `--state-b64` in a sandbox `OPENCLAW_WORKSPACE`, one case per window boundary and per ping spacing, before trusting the cron; procedure in the reference.
+4. Initiative: add `living-loop-presence-watch` — cron `*/20 * * * *` in `Europe/Moscow`, `sessionTarget: isolated`, an `agentTurn` that follows `memory/PRESENCE-PING.md`, announced to the owner's direct chat. Its `trigger.script` is the shipped `scripts/living-loop/presence-trigger.js`, which runs `scripts/living-loop/presence-check.mjs` headless and returns `fire` only when the user has been silent >3 h, the moment is outside the night window, and no ping went out in the last 3 h, so quiet cycles cost no model call. Configure the gate with `OPENCLAW_WORKSPACE`, `PRESENCE_TZ`, `OWNER_NAME`, `OWNER_CHAT_ID`, `OWNER_HANDLES`, `SILENCE_HOURS`, `MIN_GAP_HOURS` and the three window hours — defaults are documented in the reference. Add `living-loop-consolidate` (every 3 days, isolated, `delivery: none`) with the same cheap-model pin. Day plans live in `memory/plans/YYYY-MM-DD.md`; every morning ping opens with that day's plan.
+5. Verify each job with a forced run and read status, model and summary; a ping with nothing to say returns `NO_REPLY` and suppresses delivery. For the watcher, prove the gate with `--now` and `--state-b64` in a sandbox `OPENCLAW_WORKSPACE`, one case per window boundary and per ping spacing, before trusting the cron; procedure and the eight-case matrix are in the reference.
 
 Check: after the first consolidation, a new session continues an open thread without asking, using live state and `memory/live/consolidation-*.md`.
 
