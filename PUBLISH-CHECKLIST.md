@@ -13,16 +13,18 @@ Skill source of truth: `~/.openclaw/agents/main/agent/workshop-skills/warm-cache
 - [x] Use case draft for `awesome-openclaw-usecases`: `../usecases/warm-cache-continuous-presence.md`
 - [x] Community channels checked (07.11.2026): `openclaw/openclaw` has Discussions disabled (issues only); `VoltAgent/awesome-openclaw-skills` 53.6k stars; `hesamsheikh/awesome-openclaw-usecases` 31.6k stars, explicit CONTRIBUTING and table format
 
-## Blocking decisions
+## Published (2026-11-07)
 
-- [ ] **Author name** — real name, nickname, or "anonymous". Affects SKILL.md frontmatter, LICENSE, commit author.
-- [ ] **License holder** — MIT needs a name. Placeholder currently in README.
-- [ ] **First channel** — ClawHub skill, standalone GitHub repo, or Tech Leads Club PR.
-- [ ] **Repo name** — proposed `warm-cache-continuity` (avoids the prompt-cache collision in the title).
+- [x] **Author name** — `port338` (GitHub login). Used in SKILL.md frontmatter, LICENSE, commit author.
+- [x] **License holder** — MIT, Copyright (c) 2026 port338.
+- [x] **Repo** — public: https://github.com/port338/warm-cache-continuity (default branch `main`, topics set).
+- [x] **Commit author email** — `port338@users.noreply.github.com` (no personal address in history).
+- [x] **Use case PR** — hesamsheikh/awesome-openclaw-usecases#156, 2 files, +113.
+- [x] **Decision** — publish first, fix from field feedback (clean-room run still pending).
 
 ## Before publishing
 
-- [ ] Reproduce on a clean install: fresh OpenClaw, no hooks, follow SKILL.md top to bottom, record every place the doc is wrong. Publishing an unverified procedure is how the pitfalls list stops being trustworthy.
+- [ ] Reproduce on a clean install: fresh OpenClaw, no hooks, follow SKILL.md top to bottom, record every place the doc is wrong. Publishing an unverified procedure is how the pitfalls list stops being trustworthy. **Deferred by owner decision: publish now, fix from field feedback.**
 - [ ] Test the presence gate in a sandbox workspace (`--now` + one case per window boundary), not against real silence state.
 - [ ] Check the skill lints: frontmatter parses, `name` matches the directory, no dangling `related_skills`.
 - [ ] Decide whether scripts ship inside the skill directory or as a separate repo referenced from SKILL.md. ChromaDB dependency makes the skill heavier than a typical skill.
