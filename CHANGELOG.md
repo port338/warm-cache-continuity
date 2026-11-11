@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.4.0 — 2026-11-11
+
+**Added: the morning digest fires on a clock, not only after silence.**
+
+Previously the presence gate only pinged when the owner had been quiet for the configured
+hours, so a morning digest could slip to 11:00 or never arrive on a day the owner wrote early.
+The gate now has an explicit daily digest slot: 07:00 MSK on working days, 10:00 MSK on
+weekends and Russian public holidays, taken from the production calendar (`isdayoff.ru`,
+cached for 7 days). The digest fires regardless of conversation activity and is sent once per
+day; the daytime "quiet for 3 hours" initiative is unchanged. If the calendar is unavailable
+the gate waits until 10:00 and says so instead of guessing.
+
+**Added: nightly day snapshot into the session cache.**
+
+`scripts/session-snapshot.py` writes `memory/session-cache/<date>-2350-auto.md` from the day's
+stream and plan: message counts, topics discussed, open tasks. Runs at 23:50 without a model,
+so the cache no longer lags days behind when no new session is started.
+
 ## 1.3.1 — 2026-11-07
 
 **Fixed: the master switch could report "off" and still behave as "on".**

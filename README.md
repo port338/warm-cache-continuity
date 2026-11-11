@@ -158,6 +158,13 @@ Two rules hold the whole thing together, and every layer is a consequence of the
 
 ---
 
+### Nightly snapshot
+
+A scheduled command (`scripts/session-snapshot.py`, 23:50 local) writes a short
+`memory/session-cache/<date>-2350-auto.md` from the day's stream and plan — message counts,
+topics, open tasks — without calling a model. This keeps the cache current on days when no new
+session is started, so a fresh session reads the last day instead of a week-old file.
+
 ## Phase 1 — Curated session cache
 
 **Problem it solves:** the agent does not know what is unfinished, or why the last decision was

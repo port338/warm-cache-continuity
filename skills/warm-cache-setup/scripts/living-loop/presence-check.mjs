@@ -6,8 +6,9 @@
  * Возвращает одну строку JSON: { fire, message?, state }.
  *
  * Правила (заданы владельцем 07.11.2026):
- *  - Пинг, если владелец молчит > 3 часов.
- *  - Ночные часы (MSK): будни 22:00–07:00, выходные и праздники РФ 22:00–10:00.
+ *  - Утренняя сводка ежедневно в 07:00 в рабочие дни или 10:00 в выходные РФ.
+ *  - Дневной пинг, если владелец молчит > 3 часов.
+ *  - Ночные часы (MSK): рабочие дни 22:00–07:00, выходные и праздники РФ 22:00–10:00.
  *  - Не чаще одного пинга в 3 часа.
  *  - Каждый утренний пинг начинается с плана на текущий день.
  *
@@ -121,17 +122,20 @@ async function holidaySet(year, month, parts) {
     "live",
     `dayoff-${year}-${String(month).padStart(2, "0")}.json`,
   );
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const valid = (data) => typeof data === "string" && /^[01]+$/.test(data) && data.length === daysInMonth;
   try {
     const cached = JSON.parse(await fs.readFile(cacheFile, "utf8"));
-    if (typeof cached.data === "string" && cached.data.length >= 28) return cached.data;
+    const ageMs = Date.now() - Date.parse(cached.fetchedAt);
+    if (valid(cached.data) && Number.isFinite(ageMs) && ageMs >= 0 && ageMs < 7 * 86400000) return cached.data;
   } catch {
-    /* no cache yet */
+    /* no fresh cache */
   }
   const url = `https://isdayoff.ru/api/getdata?year=${year}&month=${String(month).padStart(2, "0")}&cc=ru`;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
     const data = (await res.text()).trim();
-    if (/^[01]+$/.test(data) && data.length >= 28) {
+    if (res.ok && valid(data)) {
       await fs.mkdir(path.dirname(cacheFile), { recursive: true });
       await fs.writeFile(
         cacheFile,
@@ -298,12 +302,14 @@ async function main() {
   if (Number.isNaN(now.getTime())) throw new Error(`bad --now: ${nowOverride}`);
   const t = mskParts(now);
 
-  const sat = t.weekday === "Sat";
-  const sun = t.weekday === "Sun";
   const dayoff = await holidaySet(t.y, t.m, t);
   const idx = t.d - 1;
-  const isHoliday = !!(dayoff && dayoff[idx] === "1");
-  const restDay = sat || sun || isHoliday;
+  const calendarCode = dayoff?.[idx];
+  // Календарь учитывает перенесённые рабочие субботы. При недоступности
+  // календаря выбираем безопасные 10:00, чтобы не разбудить в праздник.
+  const calendarUnknown = calendarCode !== "0" && calendarCode !== "1";
+  const isHoliday = calendarCode === "1";
+  const restDay = calendarUnknown || isHoliday;
 
   const startHour = restDay ? WEEKEND_START_HOUR : WEEKDAY_START_HOUR;
   const minutes = t.hh * 60 + t.mm;
@@ -331,6 +337,7 @@ async function main() {
     inWindow,
     restDay,
     isHoliday,
+    calendarUnknown,
     planFile: dayFile,
     planExists,
   };
@@ -354,6 +361,22 @@ async function main() {
   }
 
   if (!inWindow) return { fire: false, state };
+
+  // Сводка обязательна раз в день независимо от активности владельца. При
+  // задержке планировщика повторяем попытку до полудня; состояние фиксируется
+  // планировщиком только после успешной доставки задания.
+  if (t.hh < 12 && state.lastMorningDay !== t.dateStr) {
+    const calendarNote = calendarUnknown
+      ? "Календарь РФ недоступен: безопасное время 10:00; упомяни это кратко."
+      : restDay ? "По календарю РФ нерабочий день." : "По календарю РФ рабочий день.";
+    return {
+      fire: true,
+      message: `Обязательная утренняя сводка по расписанию: ${t.dateStr} ${String(t.hh).padStart(2, "0")}:${String(t.mm).padStart(2, "0")} MSK. ${calendarNote} Период тишины не важен. План: ${dayFile} — ${planExists ? "существует" : "отсутствует"}.`,
+      state: { ...state, lastPingAt: now.toISOString(), lastPingDay: t.dateStr, lastMorningDay: t.dateStr, ...base },
+    };
+  }
+  // После утренней сводки не отправлять второй утренний обзор.
+  if (t.hh < 12 && state.lastMorningDay === t.dateStr) return { fire: false, state };
   if (silenceMs === null || silenceMs < SILENCE_MS) return { fire: false, state };
   if (sinceLastPing < MIN_GAP_MS) return { fire: false, state };
 
