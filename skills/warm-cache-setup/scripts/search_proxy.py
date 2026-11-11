@@ -52,4 +52,4 @@ class SearchHandler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     print("Search proxy on :8010")
-    HTTPServer(("0.0.0.0", 8010), SearchHandler).serve_forever()
+    HTTPServer(("127.0.0.1", 8010), SearchHandler).serve_forever()

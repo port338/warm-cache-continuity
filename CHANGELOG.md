@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.1 — 2026-11-12
+
+**Fixed: the bundled search proxy no longer listens on every interface.**
+
+`skills/warm-cache-setup/scripts/search_proxy.py` started an `HTTPServer` on `0.0.0.0:8010`,
+so anyone who copied the plugin from this repository would expose ChromaDB read access to the
+whole network — including a host with a public IP. It now binds `127.0.0.1` only. If you need
+it across machines, put a tunnelled address in front of it deliberately.
+
 ## 1.4.0 — 2026-11-11
 
 **Added: the morning digest fires on a clock, not only after silence.**
