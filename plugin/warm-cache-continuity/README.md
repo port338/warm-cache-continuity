@@ -1,6 +1,6 @@
 # Warm Cache & Living Loop
 
-![Warm Cache & Living Loop — five phases, one warm memory](assets/banner.jpg)
+![Warm Cache & Living Loop — five phases, one warm memory](assets/banner.webp)
 
 Continuity for long-lived OpenClaw agents: a **warm start** for the agent's own memory, and a
 **presence gate** that decides — without spending a single token — whether it is appropriate to
