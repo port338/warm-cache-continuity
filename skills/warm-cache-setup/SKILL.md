@@ -1,7 +1,7 @@
 ---
 name: warm-cache-setup
 description: "Use for OpenClaw warm cache or living-loop memory: session-cache, session-memory, stream hook, live state, presence watcher, consolidation. Produces continuity."
-version: 1.3.1
+version: 1.4.1
 author: port338
 license: MIT
 metadata:

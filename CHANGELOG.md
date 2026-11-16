@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.4 — 2026-11-16
+
+**Added:** project banner in the README header and a Mermaid data-flow diagram in
+"Architecture at a glance" (ASCII diagram kept as a plain-text fallback).
+
+**Packaging:** the ClawHub package now ships README, LICENSE and the banner image;
+`package.json` declares the plugin API compatibility range and install metadata.
+
 ## 1.4.1 — 2026-11-12
 
 **Fixed: the bundled search proxy no longer listens on every interface.**

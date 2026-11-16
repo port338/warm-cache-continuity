@@ -1,12 +1,29 @@
 {
   "name": "warm-cache-continuity",
-  "version": "1.4.1",
-  "private": true,
+  "version": "1.4.4",
   "type": "module",
   "description": "Conversation stream, warm working state, and silence-gated initiative behind one switch",
   "openclaw": {
     "extensions": [
       "./index.js"
-    ]
-  }
+    ],
+    "compat": {
+      "pluginApi": ">=2026.6.0"
+    },
+    "install": {
+      "clawhubSpec": "clawhub:warm-cache-continuity",
+      "minHostVersion": "2026.11.2"
+    },
+    "build": {
+      "openclawVersion": "2026.11.2"
+    }
+  },
+  "files": [
+    "index.js",
+    "openclaw.plugin.json",
+    "README.md",
+    "LICENSE",
+    "assets/banner.jpg"
+  ],
+  "license": "MIT"
 }

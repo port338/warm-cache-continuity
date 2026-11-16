@@ -1,5 +1,7 @@
 # Warm Cache & Living Loop
 
+![Warm Cache & Living Loop — five phases, one warm memory](assets/banner.jpg)
+
 Continuity for long-lived OpenClaw agents: a **warm start** for the agent's own memory, and a
 **presence gate** that decides — without spending a single token — whether it is appropriate to
 speak first.
@@ -128,7 +130,44 @@ can run Phase 1 alone, forever, and get value.
 | **4** | YAML frontmatter + digest TTL | backfill once, then the agent | every session start | **zero** (a Python script) |
 | **5** | Stream, live state, people model, watcher | hooks + a condition script | bootstrap + cron | **zero while quiet** |
 
-Data flow:
+Data flow (renders as a diagram on GitHub):
+
+```mermaid
+flowchart TB
+    subgraph P1["Phase 1 · curated cache"]
+        C1["session-cache/*.md<br/>importance · open_tasks"]
+    end
+    subgraph P2["Phase 2 · raw dumps"]
+        D1["memory/*.md<br/>(session-memory hook on /new)"]
+    end
+    subgraph P3["Phase 3 · semantic index"]
+        CH["ChromaDB"]
+        PX["HTTP proxy :8010"]
+    end
+    subgraph P4["Phase 4 · TTL digest"]
+        DG["startup digest<br/>critical 14d · important 7d"]
+    end
+    subgraph P5["Phase 5 · living loop"]
+        ST["stream .jsonl"]
+        GATE["gate script<br/>(no model)"]
+        MODEL["model"]
+    end
+
+    SESSION["session ends"] -->|"agent writes"| C1
+    NEW["/new"] -->|"hook · 0 tokens"| D1
+    C1 -->|"nightly indexer"| CH
+    D1 --> CH
+    CH <--> PX
+    PX -->|"on demand"| REMOTE["remote agent search"]
+    C1 -->|"backfill"| DG
+    DG --> STARTUP["startup context"]
+    MSG["every message"] --> ST
+    ST --> GATE
+    GATE -->|"fire"| MODEL --> PING["ping"]
+    GATE -->|"silence"| QUIET["0 tokens"]
+```
+
+Data flow (plain-text fallback):
 
 ```text
                     ┌──────────────── Phase 1 ───────────────┐
