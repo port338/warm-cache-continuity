@@ -2,6 +2,7 @@
   "id": "warm-cache-continuity",
   "name": "Warm Cache & Living Loop",
   "description": "Living continuity for OpenClaw: append-only conversation stream, warm working state injected into the prompt, and a silence-gated initiative watcher. One master switch turns the whole mechanism on or off.",
+  "categories": ["memory"],
   "activation": { "onStartup": true },
   "configSchema": {
     "type": "object",

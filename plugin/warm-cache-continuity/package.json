@@ -1,8 +1,8 @@
 {
   "name": "warm-cache-continuity",
-  "version": "1.4.5",
+  "version": "1.4.6",
   "type": "module",
-  "description": "Conversation stream, warm working state, and silence-gated initiative behind one switch",
+  "description": "Session continuity and memory for OpenClaw: append-only conversation stream, warm working state injected into the prompt, and silence-gated initiative behind one switch",
   "openclaw": {
     "extensions": [
       "./index.js"
@@ -25,5 +25,19 @@
     "LICENSE",
     "assets/banner.webp"
   ],
+  "keywords": [
+    "openclaw",
+    "plugin",
+    "memory",
+    "context",
+    "session-continuity",
+    "proactive-agent",
+    "local-first"
+  ],
+  "homepage": "https://clawhub.ai/port338/plugins/warm-cache-continuity",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/port338/warm-cache-continuity.git"
+  },
   "license": "MIT"
 }
